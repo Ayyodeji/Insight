@@ -5,10 +5,12 @@ from transformers import (
     DistilBertTokenizer,
     pipeline,
 )
-import nltk
-from nltk.tokenize import sent_tokenize
+import spacy
 import PyPDF2
 import io
+
+# Initialize spaCy model for sentence tokenization
+nlp = spacy.load("en_core_web_sm")
 
 # Initialize models and tokenizers
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -16,25 +18,42 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased').to(device)
 tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
 
-nltk.download('punkt')
-
-# Function to tokenize a document into an array of sentences
+# Function to tokenize a document into an array of sentences using spaCy
 def document_to_sentences(document):
-    sentences = sent_tokenize(document)
+    sentences = [sent.text for sent in nlp(document).sents]
     return sentences
 
-# Function to extract text from an uploaded PDF
+# Function to extract text from uploaded PDFs
 def extract_text_from_uploaded_pdf_using_reader(uploaded_files):
-    pdf_text = ''
+    try:
+        pdf_text = ''
 
-    for file_name, file_content in uploaded_files.items():
-        if file_name.endswith(".pdf"):
-            file_like = io.BytesIO(file_content)
-            pdf_reader = PyPDF2.PdfReader(file_like)
-            for page in pdf_reader.pages:
-                pdf_text += page.extract_text()
+        if isinstance(uploaded_files, list):
+            # Handle multi-file upload (list of UploadedFile objects)
+            for uploaded_file in uploaded_files:
+                if uploaded_file.type == "application/pdf":
+                    file_like = io.BytesIO(uploaded_file.read())
+                    pdf_reader = PyPDF2.PdfReader(file_like)
+                    for page in pdf_reader.pages:
+                        pdf_text += page.extract_text()
+                else:
+                    print(f"Skipping {uploaded_file.name} (not a PDF)")
+        else:
+            # Handle single-file upload (UploadedFile object)
+            if uploaded_files.type == "application/pdf":
+                file_like = io.BytesIO(uploaded_files.read())
+                pdf_reader = PyPDF2.PdfReader(file_like)
+                for page in pdf_reader.pages:
+                    pdf_text += page.extract_text()
+            else:
+                print(f"Skipping {uploaded_files.name} (not a PDF)")
 
-    return document_to_sentences(pdf_text)
+        return document_to_sentences(pdf_text)
+    except Exception as e:
+        st.error(f"Error extracting text from PDF: {str(e)}")
+        return []
+
+
 
 # Streamlit app
 def main():
