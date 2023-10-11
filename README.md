@@ -1,6 +1,6 @@
 # Insight
 Insight Application Codebase
-```markdown
+markdown
 # Document Summarization and CSV Chat App
 
 This Streamlit web application is designed to help users perform document summarization and chat with CSV data using the Language Model GPT-3.5, developed by OpenAI. It allows users to upload a PDF document for summarization and chat with the content of a CSV file.
