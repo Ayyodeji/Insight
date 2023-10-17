@@ -16,8 +16,8 @@ st.title('Question Answering App')
 # Sidebar contents
 with st.sidebar:
     st.markdown('## About')
-    st.write('This app is a question-answering tool using LangChain and Streamlit.')
-    st.write('Made by [Your Name]')
+    st.write('Langchain Document QA')
+    st.write('Made by BrigBox')
 
 # Load and process the text files
 # loader = TextLoader('single_text_file.txt')

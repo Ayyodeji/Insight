@@ -75,5 +75,5 @@ process_llm_response(llm_response)
 vectordb.delete_collection()
 vectordb.persist()
 
-# delete the directory
-!rm -rf db/
+# # delete the directory
+# !rm -rf db/
