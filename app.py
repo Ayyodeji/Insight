@@ -76,4 +76,4 @@ vectordb.delete_collection()
 vectordb.persist()
 
 # delete the directory
-!rm -rf db/
+# !rm -rf db/
