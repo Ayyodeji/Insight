@@ -3,3 +3,4 @@ models/question_encoder
 
 .pdf
 .DS_Store
+.env

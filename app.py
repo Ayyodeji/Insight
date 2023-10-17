@@ -1,46 +1,79 @@
-import streamlit as st
-from pandasai.llm.openai import OpenAI
-from dotenv import load_dotenv
-import os
-import pandas as pd
-from pandasai import PandasAI
+import textwrap
+from langchain.vectorstores import Chroma
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.llms import OpenAI
+from langchain.chains import RetrievalQA
+from langchain.document_loaders import TextLoader
+from langchain.document_loaders import PyPDFLoader
+from langchain.document_loaders import DirectoryLoader
+from InstructorEmbedding import INSTRUCTOR
+from langchain.embeddings import HuggingFaceInstructEmbeddings
 
-load_dotenv()
+# Load and process the text files
+# loader = TextLoader('single_text_file.txt')
+loader = DirectoryLoader('./new_papers/new_papers/', glob="./*.pdf", loader_cls=PyPDFLoader)
 
+documents = loader.load()
+#splitting the text into
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+texts = text_splitter.split_documents(documents)
 
-openai_api_key = os.getenv("OPENAI_API_KEY")
+instructor_embeddings = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl",
+                                                      model_kwargs={"device": "cuda"})
+# Embed and store the texts
+# Supplying a persist_directory will store the embeddings on disk
+persist_directory = 'db'
 
+## Here is the nmew embeddings being used
+embedding = instructor_embeddings
 
-def chat_with_csv(df,prompt):
-    llm = OpenAI(api_token=openai_api_key)
-    pandas_ai = PandasAI(llm)
-    result = pandas_ai.run(df, prompt=prompt)
-    print(result)
-    return result
+vectordb = Chroma.from_documents(documents=texts,
+                                 embedding=embedding,
+                                 persist_directory=persist_directory)
+# persiste the db to disk
+vectordb.persist()
+vectordb = None
+# Now we can load the persisted database from disk, and use it as normal.
+vectordb = Chroma(persist_directory=persist_directory,
+                  embedding_function=embedding)
+retriever = vectordb.as_retriever()
+docs = retriever.get_relevant_documents("What is Flash attention?")
+retriever = vectordb.as_retriever(search_kwargs={"k": 3})
 
-st.set_page_config(layout='wide')
+# create the chain to answer questions
+qa_chain = RetrievalQA.from_chain_type(llm=OpenAI(),
+                                  chain_type="stuff",
+                                  retriever=retriever,
+                                  return_source_documents=True)
 
-st.title("Insight powered by LLM")
+## Cite sources
 
-input_csv = st.file_uploader("Upload your CSV file", type=['csv'])
+def wrap_text_preserve_newlines(text, width=110):
+    # Split the input text into lines based on newline characters
+    lines = text.split('\n')
 
-if input_csv is not None:
+    # Wrap each line individually
+    wrapped_lines = [textwrap.fill(line, width=width) for line in lines]
 
-        col1, col2 = st.columns([1,1])
+    # Join the wrapped lines back together using newline characters
+    wrapped_text = '\n'.join(wrapped_lines)
 
-        with col1:
-            st.info("CSV Uploaded Successfully")
-            data = pd.read_csv(input_csv)
-            st.dataframe(data, use_container_width=True)
+    return wrapped_text
 
-        with col2:
+def process_llm_response(llm_response):
+    print(wrap_text_preserve_newlines(llm_response['result']))
+    print('\n\nSources:')
+    for source in llm_response["source_documents"]:
+        print(source.metadata['source'])
+        
+# full example
+query = input("Enter your question")
+llm_response = qa_chain(query)
+process_llm_response(llm_response)
 
-            st.info("Chat Below")
+# To cleanup, you can delete the collection
+vectordb.delete_collection()
+vectordb.persist()
 
-            input_text = st.text_area("Enter your query")
-
-            if input_text is not None:
-                if st.button("Chat with CSV"):
-                    st.info("Your Query: "+input_text)
-                    result = chat_with_csv(data, input_text)
-                    st.success(result)
+# delete the directory
+!rm -rf db/
