@@ -103,5 +103,3 @@ The application requires an OpenAI API key, which should be placed in a `.env` f
 
 This application utilizes the power of OpenAI's GPT-3.5 and Hugging Face's DistilBERT for document summarization. Special thanks to the open-source community for their contributions to the libraries used in this project.
 ```
-
-Remember to replace `your-repo-url` with the actual URL of your repository and customize the content to match your project's specifics. This `readme.md` provides a basic structure and information that will help users understand and use your application.
